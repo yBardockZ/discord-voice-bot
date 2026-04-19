@@ -1,0 +1,31 @@
+services:
+  # Banco de Dados PostgreSQL
+  db:
+    image: postgres:15
+    container_name: discord-bot-db
+    environment:
+      POSTGRES_USER: user_bot
+      POSTGRES_PASSWORD: password_bot
+      POSTGRES_DB: voice_tracker_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user_bot -d voice_tracker_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Sua aplicação Spring Boot
+  app:
+    build: .
+    container_name: discord-bot-app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      BOT_TOKEN: ${BOT_TOKEN}
+
+volumes:
+  pgdata:
