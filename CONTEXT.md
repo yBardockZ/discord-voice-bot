@@ -56,6 +56,7 @@ The project uses a 1:N relationship between Users and Voice Sessions.
 - **Bot service placeholder:** `DiscordBotService.java` (starts JDA connection, no event listeners yet)
 
 ## 6. Next Steps
-- Implement `VoiceEventListener.java` to handle Discord voice events
+- Implement `VoiceEventListener.java` to handle Discord voice events and register it via DiscordBotService
+- Define slash command interfaces (e.g., `/voice-stats`, `/list-voice-users`) to expose total time statistics
 - Create services to manage users and sessions
 - Implement logic to track session duration and update `total_time`

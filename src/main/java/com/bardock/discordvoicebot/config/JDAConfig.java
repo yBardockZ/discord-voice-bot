@@ -19,6 +19,9 @@ public class JDAConfig {
     @Value("${BOT_TOKEN}")
     private String token;
 
+    @Value("${discord.guild.test-id}")
+    private final String GUILD_TEST_ID = "";
+
     private final VoiceEventListener voiceEventListener;
 
     @Bean
@@ -38,6 +41,7 @@ public class JDAConfig {
                 })
                 .addEventListeners(voiceEventListener)
                 .build()
+                .updateCommands()
                 .awaitReady();
     }
 
