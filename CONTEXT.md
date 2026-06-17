@@ -60,3 +60,5 @@ The project uses a 1:N relationship between Users and Voice Sessions.
 - Define slash command interfaces (e.g., `/voice-stats`, `/list-voice-users`) to expose total time statistics
 - Create services to manage users and sessions
 - Implement logic to track session duration and update `total_time`
+
+# NEXT STEP REFACTOR A SERVICE LAYER 
