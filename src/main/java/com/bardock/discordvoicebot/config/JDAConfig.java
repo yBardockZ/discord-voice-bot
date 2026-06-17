@@ -1,5 +1,6 @@
 package com.bardock.discordvoicebot.config;
 
+import com.bardock.discordvoicebot.listener.CommandListener;
 import com.bardock.discordvoicebot.listener.VoiceEventListener;
 import lombok.RequiredArgsConstructor;
 import net.dv8tion.jda.api.JDA;
@@ -24,6 +25,7 @@ public class JDAConfig {
     private String guildTestId;
 
     private final VoiceEventListener voiceEventListener;
+    private final CommandListener commandListener;
 
     @Bean
     public JDA jda() throws InterruptedException {
@@ -58,6 +60,7 @@ public class JDAConfig {
                     }
                 })
                 .addEventListeners(voiceEventListener)
+                .addEventListeners(commandListener)
                 .build()
                 .awaitReady();
     }
