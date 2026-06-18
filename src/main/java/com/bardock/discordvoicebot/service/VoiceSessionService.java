@@ -1,7 +1,9 @@
 package com.bardock.discordvoicebot.service;
 
+import com.bardock.discordvoicebot.entity.GuildStats;
 import com.bardock.discordvoicebot.entity.User;
 import com.bardock.discordvoicebot.entity.VoiceSession;
+import com.bardock.discordvoicebot.repository.GuildStatsRepository;
 import com.bardock.discordvoicebot.repository.UserRepository;
 import com.bardock.discordvoicebot.repository.VoiceSessionRepository;
 import jakarta.transaction.Transactional;
@@ -20,11 +22,12 @@ public class VoiceSessionService {
 
     private final UserRepository userRepository;
     private final VoiceSessionRepository voiceSessionRepository;
+    private final GuildStatsRepository guildStatsRepository;
 
     private final Map<Long, Instant> activeSessionsCache = new ConcurrentHashMap<>();
 
     @Transactional
-    public void handleJoin(Long userId, String username, String avatarUrl) {
+    public void handleJoin(Long userId, Long guildId, String username, String avatarUrl) {
         // 1. Garante que o usuário existe no banco de dados (se não existir, cria)
         User user = userRepository.findById(userId).orElseGet(() -> {
             User newUser = User.builder()
@@ -42,6 +45,7 @@ public class VoiceSessionService {
         // 3. Salva uma nova sessão com ended_at nulo no PostgreSQL
         VoiceSession session = VoiceSession.builder()
                 .user(user)
+                .guildId(guildId)
                 .startedAt(OffsetDateTime.now())
                 .build();
 
@@ -50,32 +54,42 @@ public class VoiceSessionService {
     }
 
     @Transactional
-    public void handleLeave(Long userId) {
+    public void handleLeave(Long userId, Long guildId) {
         Instant leaveInstant = Instant.now();
         Instant joinInstant = activeSessionsCache.remove(userId);
 
-        if (joinInstant != null) {
-            // 1. Calcula a duração da sessão atual em segundos
-            long durationSeconds = Duration.between(joinInstant, leaveInstant).toSeconds();
-
-            // 2. Atualiza o tempo acummulado do usuário no banco
-            userRepository.findById(userId).ifPresent(user -> {
-                user.setTotalTime(user.getTotalTime() + durationSeconds);
-                userRepository.save(user);
-
-                // 3. Finaliza a sessão correspondente no banco
-                voiceSessionRepository.findFirstByUserIdAndEndedAtIsNull(userId).ifPresent((session) -> {
-                    session.setEndedAt(OffsetDateTime.now());
-                    voiceSessionRepository.save(session);
-                });
-
-                System.out.println("LOG: " + user.getUsername() + " saiu da call. Tempo acumulado: +" + durationSeconds
-                        + "s");
-            });
+        // Proteção preventiva: se o cache sumir ou o método for chamado duplicado
+        if (joinInstant == null) {
+            return;
         }
 
+        // 1. Calcula a duração da sessão atual em segundos
+        long durationSeconds = Duration.between(joinInstant, leaveInstant).toSeconds();
+
+        // 2. Busca o usuário
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalStateException("User not found in the database upon exiting the call."));
+
+        // 3. Atualiza ou CRIA o registro na GuildStats
+        GuildStats guildStats = guildStatsRepository.findByUserIdAndGuildId(userId, guildId).orElseGet(() -> {
+            return GuildStats.builder()
+                    .user(user)
+                    .guildId(guildId)
+                    .totalTime(0L)
+                    .build();
+        });
+
+        guildStats.setTotalTime(guildStats.getTotalTime() + durationSeconds);
+        guildStatsRepository.save(guildStats);
+
+        // 3. Finaliza a sessão correspondente no banco
+        voiceSessionRepository.findFirstByUserIdAndGuildIdAndEndedAtIsNull(userId, guildId).ifPresent((session) -> {
+            session.setEndedAt(OffsetDateTime.now());
+            voiceSessionRepository.save(session);
+        });
+
+        System.out.println("LOG: " + user.getUsername() + " saiu da call. Tempo acumulado: +" + durationSeconds
+                + "s");
     }
-
-
 
 }

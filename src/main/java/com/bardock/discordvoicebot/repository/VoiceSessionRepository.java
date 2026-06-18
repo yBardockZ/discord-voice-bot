@@ -15,5 +15,5 @@ public interface VoiceSessionRepository extends JpaRepository<VoiceSession, UUID
 
     List<VoiceSession> findByUserIdAndEndedAtIsNull(Long userId);
 
-    Optional<VoiceSession> findFirstByUserIdAndEndedAtIsNull(Long userId);
+    Optional<VoiceSession> findFirstByUserIdAndGuildIdAndEndedAtIsNull(Long userId, Long guildId);
 }
