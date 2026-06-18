@@ -14,32 +14,40 @@ A Discord bot built in Java/Spring Boot to track and persist the total time each
 - **Utilities:** Lombok
 
 ## 3. Architecture & Data Model
-The project uses a 1:N relationship between `users` and `voice_sessions`.
+The project uses a multi-tenant data model where Discord user identity is stored globally, while accumulated voice time is scoped per Discord guild.
 
-### Database Schema (see `V001__create_tables.sql`)
+### Database Schema
 
 **users table:**
 - `user_id` (BIGINT, PK) - Discord Snowflake ID
 - `username` (VARCHAR(100), NOT NULL)
 - `user_picture` (TEXT, nullable) - Avatar CDN URL
-- `total_time` (BIGINT, NOT NULL, DEFAULT 0) - Cumulative voice time in seconds
 - `created_at` (TIMESTAMPTZ)
 - `updated_at` (TIMESTAMPTZ)
+
+**guild_stats table:**
+- `id` (BIGSERIAL, PK)
+- `user_id` (BIGINT, FK -> users.user_id)
+- `guild_id` (BIGINT, NOT NULL) - Discord Guild Snowflake ID
+- `total_time` (BIGINT, NOT NULL, DEFAULT 0) - Cumulative voice time in seconds for this user in this guild
+- Unique constraint on (`user_id`, `guild_id`)
 
 **voice_sessions table:**
 - `session_id` (UUID, PK) - Auto-generated
 - `user_id` (BIGINT, FK -> users.user_id)
+- `guild_id` (BIGINT, NOT NULL) - Discord Guild Snowflake ID where the session occurred
 - `started_at` (TIMESTAMPTZ, NOT NULL)
 - `ended_at` (TIMESTAMPTZ, nullable) - NULL while session is active
-- `created_at` (TIMESTAMPTZ)
 
 ### JPA Entities
-- `User.java` - Entity mapped to `users`, with timestamp lifecycle hooks and a `OneToMany` relationship to `VoiceSession`.
-- `VoiceSession.java` - Entity mapped to `voice_sessions`, with a `ManyToOne` relationship to `User`.
+- `User.java` - Entity mapped to `users`, containing only global Discord profile data and timestamp lifecycle hooks.
+- `GuildStats.java` - Entity mapped to `guild_stats`, with a `ManyToOne` relationship to `User` and per-guild accumulated voice time.
+- `VoiceSession.java` - Entity mapped to `voice_sessions`, with a `ManyToOne` relationship to `User` and a required `guildId`.
 
 ### Repositories
 - `UserRepository` - extends `JpaRepository<User, Long>`.
-- `VoiceSessionRepository` - extends `JpaRepository<VoiceSession, UUID>` and exposes queries for user sessions and active sessions.
+- `GuildStatsRepository` - extends `JpaRepository<GuildStats, Long>` and exposes lookup/update queries by `userId` and `guildId`.
+- `VoiceSessionRepository` - extends `JpaRepository<VoiceSession, UUID>` and exposes queries for active sessions by `userId` and `guildId`.
 
 ## 4. Runtime Flow
 
@@ -105,9 +113,14 @@ The project uses a 1:N relationship between `users` and `voice_sessions`.
 - Docker Compose and Dockerfile are present for local/container execution.
 
 ## 8. Known Limitations / Next Steps
-- Handle bot restarts while users are already connected to voice channels.
-- Decide how to handle voice channel moves if they should affect sessions.
-- Add tests for `VoiceSessionService` and `ProfileService`.
-- Improve command responses and formatting, potentially including seconds or days for long durations.
-- Add more slash commands, such as a leaderboard or admin/user lookup.
-- Review text encoding in source comments/logs, because some Portuguese characters currently appear mojibaked.
+- Create Flyway migration `V002__refactor_guild_stats.sql`.
+- Remove `total_time` from the `users` table.
+- Create the `guild_stats` table with a unique constraint on (`user_id`, `guild_id`).
+- Add `guild_id` to `voice_sessions`.
+- Update JPA entities to introduce `GuildStats` and remove accumulated time from `User`.
+- Add `GuildStatsRepository`.
+- Refactor `VoiceSessionService` to receive and persist `guildId` on join/leave events.
+- Update voice session closing logic to find active sessions by both `userId` and `guildId`.
+- Update accumulated time writes to increment `guild_stats.total_time` instead of `users.total_time`.
+- Update `/perfil` to read time from `guild_stats` for the current guild.
+- Implement `/ranking` only after the guild-scoped persistence model is complete.

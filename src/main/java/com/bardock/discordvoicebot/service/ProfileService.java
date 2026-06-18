@@ -53,7 +53,8 @@ public class ProfileService {
 
         embed.setColor(Color.decode("#ED4245"));
         embed.setTitle("🎙️ Perfil de Voz");
-        embed.setDescription("Você ainda não tem horas registradas em chamadas de voz. Entre em uma call para começar a contar!");
+        embed.setDescription("Você ainda não tem horas registradas em chamadas de voz. " +
+                "Entre em uma call para começar a contar!");
 
 
         return embed.build();
