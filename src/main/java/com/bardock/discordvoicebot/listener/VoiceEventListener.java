@@ -16,22 +16,19 @@ public class VoiceEventListener extends ListenerAdapter {
     @Override
     public void onGuildVoiceUpdate(@NonNull GuildVoiceUpdateEvent event) {
         Long userId = event.getMember().getIdLong();
+        Long guildId = event.getGuild().getIdLong();
         String username = event.getMember().getUser().getName();
         String avatarUrl = event.getMember().getUser().getEffectiveAvatarUrl();
 
         // CENÁRIO 1: Usuário ENTROU em um canal de voz (não estava em nenhum antes)
         if (event.getChannelLeft() == null && event.getChannelJoined() != null) {
-            voiceSessionService.handleJoin(userId, username, avatarUrl);
+            voiceSessionService.handleJoin(userId, guildId, username, avatarUrl);
         }
 
         // CENÁRIO 2: Usuário SAIU de um canal de voz (e não entrou em outro)
         else if (event.getChannelLeft() != null && event.getChannelJoined() == null) {
-            voiceSessionService.handleLeave(userId);
+            voiceSessionService.handleLeave(userId, guildId);
         }
-
-
-
-        super.onGuildVoiceUpdate(event);
     }
 
 }
