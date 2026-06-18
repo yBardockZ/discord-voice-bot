@@ -26,10 +26,6 @@ public class User {
     @Column(name = "user_picture", columnDefinition = "TEXT")
     private String userPicture;
 
-    @Column(name = "total_time", nullable = false)
-    @Builder.Default
-    private Long totalTime = 0L;
-
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
@@ -39,6 +35,10 @@ public class User {
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     private List<VoiceSession> sessions = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @Builder.Default
+    private List<GuildStats> guildStats = new ArrayList<>();
 
     @PrePersist
     protected void onCreate() {
