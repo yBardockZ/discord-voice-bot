@@ -24,6 +24,9 @@ public class VoiceSession {
     @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_voice_sessions_user"))
     private User user;
 
+    @Column(name = "guild_id", nullable = false)
+    private Long guildId;
+
     @Column(name = "started_at", nullable = false)
     private OffsetDateTime startedAt;
 
