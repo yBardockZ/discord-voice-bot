@@ -16,7 +16,6 @@ import java.awt.*;
 @RequiredArgsConstructor
 public class ProfileService {
 
-    private final UserRepository userRepository;
     private final GuildStatsRepository guildStatsRepository;
 
     @Transactional(readOnly = true)

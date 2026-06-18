@@ -21,7 +21,9 @@ public class CommandListener extends ListenerAdapter {
         }
 
         Long userId = event.getUser().getIdLong();
-        MessageEmbed response = profileService.buildProfileMessage(userId);
+        Long guildId = event.getGuild().getIdLong();
+
+        MessageEmbed response = profileService.buildProfileMessage(userId, guildId);
 
         event.replyEmbeds(response)
                 .queue();
