@@ -1,6 +1,8 @@
 package com.bardock.discordvoicebot.service;
 
+import com.bardock.discordvoicebot.entity.GuildStats;
 import com.bardock.discordvoicebot.entity.User;
+import com.bardock.discordvoicebot.repository.GuildStatsRepository;
 import com.bardock.discordvoicebot.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import net.dv8tion.jda.api.EmbedBuilder;
@@ -15,16 +17,19 @@ import java.awt.*;
 public class ProfileService {
 
     private final UserRepository userRepository;
+    private final GuildStatsRepository guildStatsRepository;
 
     @Transactional(readOnly = true)
-    public MessageEmbed buildProfileMessage(Long userId) {
-        return userRepository.findById(userId)
+    public MessageEmbed buildProfileMessage(Long userId, Long guildId) {
+        return guildStatsRepository.findByUserIdAndGuildId(userId, guildId)
                 .map(this::formatExistingUserProfile)
-                .orElse(formatNotExistingUserMessage());
+                .orElseGet(this::formatNotExistingUserMessage);
     }
 
-    private MessageEmbed formatExistingUserProfile(User user) {
-        long totalSeconds = user.getTotalTime();
+    private MessageEmbed formatExistingUserProfile(GuildStats guildStats) {
+        User user = guildStats.getUser();
+
+        long totalSeconds = guildStats.getTotalTime();
         long hours = totalSeconds / 3600;
         long minutes = (totalSeconds % 3600) / 60;
 
@@ -51,7 +56,7 @@ public class ProfileService {
     private MessageEmbed formatNotExistingUserMessage() {
         EmbedBuilder embed = new EmbedBuilder();
 
-        embed.setColor(Color.decode("#ED4245"));
+        embed.setColor(Color.decode("#ED4245")); // vermelho de erro/aviso
         embed.setTitle("🎙️ Perfil de Voz");
         embed.setDescription("Você ainda não tem horas registradas em chamadas de voz. " +
                 "Entre em uma call para começar a contar!");
