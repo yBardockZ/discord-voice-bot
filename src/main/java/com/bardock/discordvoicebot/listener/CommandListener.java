@@ -16,16 +16,27 @@ public class CommandListener extends ListenerAdapter {
 
     @Override
     public void onSlashCommandInteraction(@NonNull SlashCommandInteractionEvent event) {
-        if (!event.getName().equals("perfil")) {
-            return;
+        if (event.getGuild() == null) {
+            event.reply("❌ Este comando só pode ser usado dentro de um servidor!")
+                    .setEphemeral(true)
+                    .queue();
         }
 
         Long userId = event.getUser().getIdLong();
         Long guildId = event.getGuild().getIdLong();
 
-        MessageEmbed response = profileService.buildProfileMessage(userId, guildId);
+        switch (event.getName()) {
+            case "perfil" -> {
+                event.deferReply().queue();
+                var embed = profileService.buildProfileMessage(userId, guildId);
+                event.getHook().sendMessageEmbeds(embed).queue();
+            }
+            case "ranking" -> {
+                event.deferReply().queue();
+                var embed = profileService.buildRankingMessage(guildId);
+                event.getHook().sendMessageEmbeds(embed).queue();
+            }
+        }
 
-        event.replyEmbeds(response)
-                .queue();
     }
 }

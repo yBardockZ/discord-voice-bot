@@ -24,14 +24,18 @@ public class ReadyEventListener extends ListenerAdapter {
             var guild = event.getJDA().getGuildById(guildTestId);
             if (guild != null) {
                 guild.updateCommands().addCommands(
-                        Commands.slash("perfil", "Mostra o seu tempo total acumulado")
+                        Commands.slash("perfil", "Mostra o seu tempo total acumulado"),
+                        Commands.slash("ranking", "Mostra o Top 10 " +
+                                "membros mais ativos nas calls do servidor")
                 ).queue();
                 System.out.println("LOG: Comandos registrados na guilda de testes.");
             }
         } else {
             // E produção, os comandos são registrados globalmente (demora até 1h para propagar)
             event.getJDA().updateCommands().addCommands(
-                    Commands.slash("perfil", "Mostra o seu tempo total acumulado")
+                    Commands.slash("perfil", "Mostra o seu tempo total acumulado"),
+                    Commands.slash("ranking", "Mostra o Top 10 " +
+                            "membros mais ativos nas calls do servidor")
             ).queue();
             System.out.println("LOG [PROD]: Comandos registrados globalmente.");
         }

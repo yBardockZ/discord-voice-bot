@@ -50,7 +50,7 @@ public class VoiceSessionService {
                 .build();
 
         voiceSessionRepository.save(session);
-        System.out.println("LOG: " + username + " entrou no canal de voz");
+        System.out.println("LOG: " + username + " entrou no canal de voz na guilda de ID: " + guildId);
     }
 
     @Transactional
@@ -83,13 +83,14 @@ public class VoiceSessionService {
         guildStatsRepository.save(guildStats);
 
         // 3. Finaliza a sessão correspondente no banco
-        voiceSessionRepository.findFirstByUserIdAndGuildIdAndEndedAtIsNull(userId, guildId).ifPresent((session) -> {
+        voiceSessionRepository.findFirstByUserIdAndGuildIdAndEndedAtIsNull(userId, guildId)
+                .ifPresent((session) -> {
             session.setEndedAt(OffsetDateTime.now());
             voiceSessionRepository.save(session);
         });
 
-        System.out.println("LOG: " + user.getUsername() + " saiu da call. Tempo acumulado: +" + durationSeconds
-                + "s");
+        System.out.println("LOG: " + user.getUsername() + " saiu da call na guilda de ID: " + guildStats.getGuildId() +
+                " Tempo acumulado: " + durationSeconds + "s");
     }
 
 }

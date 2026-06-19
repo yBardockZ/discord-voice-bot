@@ -124,3 +124,7 @@ The project uses a multi-tenant data model where Discord user identity is stored
 - Update accumulated time writes to increment `guild_stats.total_time` instead of `users.total_time`.
 - Update `/perfil` to read time from `guild_stats` for the current guild.
 - Implement `/ranking` only after the guild-scoped persistence model is complete.
+
+
+
+## Invite URL: https://discord.com/oauth2/authorize?client_id=1495474048224723234&permissions=2148535296&integration_type=0&scope=bot+applications.commands
