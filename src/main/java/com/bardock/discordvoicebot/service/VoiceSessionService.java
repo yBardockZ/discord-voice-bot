@@ -6,7 +6,6 @@ import com.bardock.discordvoicebot.entity.VoiceSession;
 import com.bardock.discordvoicebot.repository.GuildStatsRepository;
 import com.bardock.discordvoicebot.repository.UserRepository;
 import com.bardock.discordvoicebot.repository.VoiceSessionRepository;
-import jakarta.annotation.PostConstruct;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import net.dv8tion.jda.api.JDA;
@@ -26,27 +25,20 @@ public class VoiceSessionService {
     private final UserRepository userRepository;
     private final VoiceSessionRepository voiceSessionRepository;
     private final GuildStatsRepository guildStatsRepository;
+    private final UserService userService;
 
     private final Map<Long, Instant> activeSessionsCache = new ConcurrentHashMap<>();
 
     @Transactional
     public void handleJoin(Long userId, Long guildId, String username, String avatarUrl) {
         // 1. Garante que o usuário existe no banco de dados (se não existir, cria)
-        User user = userRepository.findById(userId).orElseGet(() -> {
-            User newUser = User.builder()
-                    .id(userId)
-                    .username(username)
-                    .userPicture(avatarUrl)
-                    .build();
-            return userRepository.save(newUser);
-        });
+        User user = userService.getOrCreateAndUpdateUser(userId, username, avatarUrl);
 
-        // Prevenção : Se o usuário já tinha uma sessão aberta presa no banco, nós a fechamos agora
+        // Prevenção : Se o usuário já tinha uma sessão aberta presa no banco, nós a deletamos agora
         voiceSessionRepository.findFirstByUserIdAndGuildIdAndEndedAtIsNull(userId, guildId)
                 .ifPresent((orphanSession) -> {
-                    orphanSession.setEndedAt(OffsetDateTime.now());
-                    voiceSessionRepository.save(orphanSession);
-                    activeSessionsCache.remove(userId); // Limpa do cache caso o PostConstruct tenha puxado errado
+                    activeSessionsCache.remove(userId); // Limpa do cache caso o discord falhe em enviar o evento leave
+                    voiceSessionRepository.delete(orphanSession);
         });
 
         // 2. Registra o momento da entrada no cache em memória (RAM)

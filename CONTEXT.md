@@ -134,8 +134,7 @@ The project uses a guild-scoped data model: Discord user identity is stored glob
 - Docker Compose and Dockerfile are present for local/container execution.
 
 ## 8. Known Limitations / Next Steps
-- Recover active sessions after bot restart instead of relying only on the in-memory `activeSessionsCache`.
-- Consider keying the active session cache by both `userId` and `guildId` to avoid collisions if the same user joins voice channels in multiple guilds simultaneously.
+- ~~Recover active sessions after bot restart instead of relying only on the in-memory `activeSessionsCache`.~~
 - Update stored usernames/avatar URLs for existing users when Discord profile data changes.
 - Add tests for `VoiceSessionService`, `ProfileService`, and command handling.
 - Consider handling voice channel moves explicitly if channel-level session history becomes important.
