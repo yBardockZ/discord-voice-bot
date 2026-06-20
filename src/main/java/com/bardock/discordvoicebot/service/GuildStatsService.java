@@ -31,7 +31,7 @@ public class GuildStatsService {
         guildStatsRepository.save(guildStats);
     }
 
-    public List<GuildStats> getTop10Raking(Long guildId) {
+    public List<GuildStats> getTop10Ranking(Long guildId) {
         return guildStatsRepository.findTop10ByGuildIdOrderByTotalTimeDesc(guildId);
     }
 
