@@ -6,13 +6,16 @@ import com.bardock.discordvoicebot.entity.VoiceSession;
 import com.bardock.discordvoicebot.repository.GuildStatsRepository;
 import com.bardock.discordvoicebot.repository.UserRepository;
 import com.bardock.discordvoicebot.repository.VoiceSessionRepository;
+import jakarta.annotation.PostConstruct;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import net.dv8tion.jda.api.JDA;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -36,6 +39,14 @@ public class VoiceSessionService {
                     .userPicture(avatarUrl)
                     .build();
             return userRepository.save(newUser);
+        });
+
+        // Prevenção : Se o usuário já tinha uma sessão aberta presa no banco, nós a fechamos agora
+        voiceSessionRepository.findFirstByUserIdAndGuildIdAndEndedAtIsNull(userId, guildId)
+                .ifPresent((orphanSession) -> {
+                    orphanSession.setEndedAt(OffsetDateTime.now());
+                    voiceSessionRepository.save(orphanSession);
+                    activeSessionsCache.remove(userId); // Limpa do cache caso o PostConstruct tenha puxado errado
         });
 
         // 2. Registra o momento da entrada no cache em memória (RAM)
@@ -91,6 +102,32 @@ public class VoiceSessionService {
 
         System.out.println("LOG: " + user.getUsername() + " saiu da call na guilda de ID: " + guildStats.getGuildId() +
                 " Tempo acumulado: " + durationSeconds + "s");
+    }
+
+    public void syncSessionsWithDiscord(JDA jda) {
+        List<VoiceSession> openSessions = voiceSessionRepository.findByEndedAtIsNull();
+
+        for (VoiceSession session : openSessions) {
+            var guild = jda.getGuildById(session.getGuildId());
+            boolean stillInCall = false;
+
+            if (guild != null) {
+                var member = guild.getMemberById(session.getUser().getId());
+                // Verifica na API do Discord se o usuário ainda está em algum canal de voz
+                if (member != null && member.getVoiceState() != null && member.getVoiceState().inAudioChannel()) {
+                    stillInCall = true;
+                }
+            }
+
+            if (stillInCall) {
+                // Usuário continuou na call. Restaura no cache de memória.
+                activeSessionsCache.put(session.getUser().getId(), session.getStartedAt().toInstant());
+            } else {
+                // Usuário saiu enquanto o bot estava off. Encerra a sessão órfã e descarta o cálculo irreal.
+                session.setEndedAt(OffsetDateTime.now());
+                voiceSessionRepository.save(session);
+            }
+        }
     }
 
 }
