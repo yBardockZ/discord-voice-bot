@@ -123,9 +123,9 @@ public class VoiceSessionService {
                 // Usuário continuou na call. Restaura no cache de memória.
                 activeSessionsCache.put(session.getUser().getId(), session.getStartedAt().toInstant());
             } else {
-                // Usuário saiu enquanto o bot estava off. Encerra a sessão órfã e descarta o cálculo irreal.
-                session.setEndedAt(OffsetDateTime.now());
-                voiceSessionRepository.save(session);
+                // Usuário saiu enquanto o bot estava off.
+                // Deleta a sessão inválida para não registrar um histórico irreal de dias/meses no banco
+                voiceSessionRepository.delete(session);
             }
         }
     }

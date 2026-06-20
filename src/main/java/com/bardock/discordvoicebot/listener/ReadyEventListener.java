@@ -1,5 +1,7 @@
 package com.bardock.discordvoicebot.listener;
 
+import com.bardock.discordvoicebot.service.VoiceSessionService;
+import lombok.RequiredArgsConstructor;
 import net.dv8tion.jda.api.events.session.ReadyEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.build.Commands;
@@ -7,10 +9,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class ReadyEventListener extends ListenerAdapter {
 
-    @Value("${discord.guild.test-id}")
+    @Value("${discord.guild.test-id:}")
     private String guildTestId;
+
+    private final VoiceSessionService voiceSessionService;
 
     @Override
     public void onReady(ReadyEvent event) {
@@ -40,6 +45,8 @@ public class ReadyEventListener extends ListenerAdapter {
             System.out.println("LOG [PROD]: Comandos registrados globalmente.");
         }
 
+        voiceSessionService.syncSessionsWithDiscord(event.getJDA());
+        System.out.println("✅ Sessões sincronizadas com o estado atual do Discord!");
     }
 
 }
