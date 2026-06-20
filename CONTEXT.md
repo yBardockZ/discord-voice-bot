@@ -1,7 +1,7 @@
 # Project Context: Discord Voice Tracker Bot
 
 ## 1. Objective
-A Discord bot built in Java/Spring Boot to track and persist the total time each Discord user spends in voice channels.
+A Discord bot built in Java/Spring Boot to track and persist the total time each Discord user spends in voice channels, scoped per Discord guild/server.
 
 ## 2. Technical Stack
 - **Language:** Java 21 (Maven)
@@ -14,7 +14,7 @@ A Discord bot built in Java/Spring Boot to track and persist the total time each
 - **Utilities:** Lombok
 
 ## 3. Architecture & Data Model
-The project uses a multi-tenant data model where Discord user identity is stored globally, while accumulated voice time is scoped per Discord guild.
+The project uses a guild-scoped data model: Discord user identity is stored globally in `users`, while accumulated voice time is stored per guild in `guild_stats`.
 
 ### Database Schema
 
@@ -30,7 +30,10 @@ The project uses a multi-tenant data model where Discord user identity is stored
 - `user_id` (BIGINT, FK -> users.user_id)
 - `guild_id` (BIGINT, NOT NULL) - Discord Guild Snowflake ID
 - `total_time` (BIGINT, NOT NULL, DEFAULT 0) - Cumulative voice time in seconds for this user in this guild
+- `created_at` (TIMESTAMPTZ)
+- `updated_at` (TIMESTAMPTZ)
 - Unique constraint on (`user_id`, `guild_id`)
+- Index on (`guild_id`, `total_time DESC`) to support `/ranking`
 
 **voice_sessions table:**
 - `session_id` (UUID, PK) - Auto-generated
@@ -38,6 +41,11 @@ The project uses a multi-tenant data model where Discord user identity is stored
 - `guild_id` (BIGINT, NOT NULL) - Discord Guild Snowflake ID where the session occurred
 - `started_at` (TIMESTAMPTZ, NOT NULL)
 - `ended_at` (TIMESTAMPTZ, nullable) - NULL while session is active
+- `created_at` (TIMESTAMPTZ)
+
+### Flyway Migrations
+- `V001__create_tables.sql` creates the original `users` and `voice_sessions` schema.
+- `V002__refactor_guild_stats.sql` removes `users.total_time`, creates `guild_stats`, adds `voice_sessions.guild_id`, and creates indexes for guild-scoped session/ranking queries.
 
 ### JPA Entities
 - `User.java` - Entity mapped to `users`, containing only global Discord profile data and timestamp lifecycle hooks.
@@ -46,41 +54,52 @@ The project uses a multi-tenant data model where Discord user identity is stored
 
 ### Repositories
 - `UserRepository` - extends `JpaRepository<User, Long>`.
-- `GuildStatsRepository` - extends `JpaRepository<GuildStats, Long>` and exposes lookup/update queries by `userId` and `guildId`.
-- `VoiceSessionRepository` - extends `JpaRepository<VoiceSession, UUID>` and exposes queries for active sessions by `userId` and `guildId`.
+- `GuildStatsRepository` - extends `JpaRepository<GuildStats, Long>` and exposes:
+  - `findByUserIdAndGuildId(Long userId, Long guildId)` for `/perfil`
+  - `findTop10ByGuildIdOrderByTotalTimeDesc(Long guildId)` for `/ranking`
+- `VoiceSessionRepository` - extends `JpaRepository<VoiceSession, UUID>` and exposes active-session lookup by `userId` and `guildId`.
 
 ## 4. Runtime Flow
 
 ### JDA Configuration
 - `JDAConfig.java` creates the JDA bean using `BOT_TOKEN`.
 - Enables `GUILD_VOICE_STATES` intent and `VOICE_STATE` cache.
-- Registers:
+- Registers three listeners:
+  - `ReadyEventListener`
   - `VoiceEventListener`
   - `CommandListener`
-  - an inline ready listener that logs bot startup and registers slash commands.
-- Registers `/perfil` in the configured test guild when `discord.guild.test-id` is present; otherwise registers it globally.
+
+### Command Registration
+- `ReadyEventListener.java` logs bot startup and registers slash commands.
+- Registers `/perfil` and `/ranking` in the configured test guild when `discord.guild.test-id` is present.
+- Registers `/perfil` and `/ranking` globally when no test guild is configured.
 
 ### Voice Tracking
 - `VoiceEventListener.java` listens to `GuildVoiceUpdateEvent`.
-- On voice join, it calls `VoiceSessionService.handleJoin(userId, username, avatarUrl)`.
-- On voice leave, it calls `VoiceSessionService.handleLeave(userId)`.
+- On voice join, it extracts `userId`, `guildId`, username, and avatar URL, then calls `VoiceSessionService.handleJoin(userId, guildId, username, avatarUrl)`.
+- On voice leave, it calls `VoiceSessionService.handleLeave(userId, guildId)`.
 - Channel moves are currently ignored because the listener only handles pure join and pure leave events.
 
 ### Service Layer
 - `VoiceSessionService.java`
   - Ensures the user exists on join.
   - Stores the join instant in an in-memory `ConcurrentHashMap`.
-  - Creates a `voice_sessions` row with `ended_at = null`.
-  - On leave, calculates duration from the in-memory cache, increments `users.total_time`, and closes the first active session in the database.
+  - Creates a `voice_sessions` row with `guild_id` and `ended_at = null`.
+  - On leave, calculates duration from the in-memory cache.
+  - Updates or creates the matching `guild_stats` row for (`user_id`, `guild_id`).
+  - Closes the first active `voice_sessions` row matching both `userId` and `guildId`.
   - Current limitation: active session recovery after bot restart is not implemented; the in-memory cache is the source for current duration calculation.
 - `ProfileService.java`
-  - Builds the `/perfil` response from `users.total_time`.
-  - Returns a fallback message when the user has no recorded voice time.
+  - Builds `/perfil` responses from `guild_stats.total_time` for the current guild.
+  - Builds `/ranking` responses from the Top 10 `guild_stats` rows ordered by `total_time DESC` for the current guild.
+  - Returns fallback embeds when there is no recorded voice time.
 
 ### Slash Commands
 - `CommandListener.java` handles slash command interactions.
-- Currently implemented command:
-  - `/perfil` - replies ephemerally with the caller's accumulated voice time in hours and minutes.
+- Commands only work inside a Discord guild.
+- Currently implemented commands:
+  - `/perfil` - returns the caller's accumulated voice time for the current guild.
+  - `/ranking` - returns an embed with the Top 10 members by accumulated voice time in the current guild.
 
 ## 5. Environment Configuration
 - `application.properties`
@@ -105,26 +124,22 @@ The project uses a multi-tenant data model where Discord user identity is stored
 
 ## 7. Current State
 - Maven project configured with JDA, Spring Data JPA, Flyway, PostgreSQL driver, and Lombok.
-- Database migration `V001__create_tables.sql` exists and creates the initial schema.
-- Entities and repositories are implemented.
+- Database migrations `V001__create_tables.sql` and `V002__refactor_guild_stats.sql` exist.
+- Entities and repositories are implemented for `User`, `GuildStats`, and `VoiceSession`.
 - JDA startup/configuration is implemented in `JDAConfig`.
+- Slash command registration is implemented in `ReadyEventListener`.
 - Voice join/leave tracking is implemented through `VoiceEventListener` and `VoiceSessionService`.
-- Slash command `/perfil` is implemented through `CommandListener` and `ProfileService`.
+- Guild-scoped accumulated time is persisted in `guild_stats`.
+- Slash commands `/perfil` and `/ranking` are implemented through `CommandListener` and `ProfileService`.
 - Docker Compose and Dockerfile are present for local/container execution.
 
 ## 8. Known Limitations / Next Steps
-- Create Flyway migration `V002__refactor_guild_stats.sql`.
-- Remove `total_time` from the `users` table.
-- Create the `guild_stats` table with a unique constraint on (`user_id`, `guild_id`).
-- Add `guild_id` to `voice_sessions`.
-- Update JPA entities to introduce `GuildStats` and remove accumulated time from `User`.
-- Add `GuildStatsRepository`.
-- Refactor `VoiceSessionService` to receive and persist `guildId` on join/leave events.
-- Update voice session closing logic to find active sessions by both `userId` and `guildId`.
-- Update accumulated time writes to increment `guild_stats.total_time` instead of `users.total_time`.
-- Update `/perfil` to read time from `guild_stats` for the current guild.
-- Implement `/ranking` only after the guild-scoped persistence model is complete.
+- Recover active sessions after bot restart instead of relying only on the in-memory `activeSessionsCache`.
+- Consider keying the active session cache by both `userId` and `guildId` to avoid collisions if the same user joins voice channels in multiple guilds simultaneously.
+- Update stored usernames/avatar URLs for existing users when Discord profile data changes.
+- Add tests for `VoiceSessionService`, `ProfileService`, and command handling.
+- Consider handling voice channel moves explicitly if channel-level session history becomes important.
+- Review slash command behavior for direct-message usage; `CommandListener` replies with an error when `event.getGuild()` is null, but should return immediately afterward.
 
-
-
-## Invite URL: https://discord.com/oauth2/authorize?client_id=1495474048224723234&permissions=2148535296&integration_type=0&scope=bot+applications.commands
+## Invite URL
+https://discord.com/oauth2/authorize?client_id=1495474048224723234&permissions=2148535296&integration_type=0&scope=bot+applications.commands

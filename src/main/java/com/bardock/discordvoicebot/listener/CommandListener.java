@@ -20,6 +20,7 @@ public class CommandListener extends ListenerAdapter {
             event.reply("❌ Este comando só pode ser usado dentro de um servidor!")
                     .setEphemeral(true)
                     .queue();
+            return;
         }
 
         Long userId = event.getUser().getIdLong();
