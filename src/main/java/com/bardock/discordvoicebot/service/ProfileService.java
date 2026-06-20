@@ -18,11 +18,11 @@ import java.awt.*;
 @RequiredArgsConstructor
 public class ProfileService {
 
-    private final GuildStatsRepository guildStatsRepository;
+    private final GuildStatsService guildStatsService;
 
     @Transactional(readOnly = true)
     public MessageEmbed buildRankingMessage(Long guildId) {
-        List<GuildStats> topStats = guildStatsRepository.findTop10ByGuildIdOrderByTotalTimeDesc(guildId);
+        List<GuildStats> topStats = guildStatsService.getTop10Raking(guildId);
 
         if (topStats.isEmpty()) {
             return new EmbedBuilder()
