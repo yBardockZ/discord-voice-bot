@@ -82,13 +82,28 @@ The project uses a guild-scoped data model: Discord user identity is stored glob
 
 ### Service Layer
 - `VoiceSessionService.java`
-  - Ensures the user exists on join.
+  - Coordinates voice-session lifecycle for join/leave events.
+  - Depends directly only on `VoiceSessionRepository` for `voice_sessions` persistence.
+  - Delegates user creation/profile updates to `UserService`.
+  - Delegates guild-scoped accumulated time updates to `GuildStatsService`.
   - Stores the join instant in an in-memory `ConcurrentHashMap`.
   - Creates a `voice_sessions` row with `guild_id` and `ended_at = null`.
   - On leave, calculates duration from the in-memory cache.
-  - Updates or creates the matching `guild_stats` row for (`user_id`, `guild_id`).
   - Closes the first active `voice_sessions` row matching both `userId` and `guildId`.
-  - Current limitation: active session recovery after bot restart is not implemented; the in-memory cache is the source for current duration calculation.
+  - On startup, `syncSessionsWithDiscord(JDA)` checks persisted open sessions against Discord:
+    - Restores still-active sessions into the in-memory cache.
+    - Deletes stale open sessions for users no longer in voice.
+  - Current limitation: sessions closed while the bot was offline are discarded rather than credited, to avoid recording unrealistic durations.
+- `UserService.java`
+  - Owns `UserRepository` access.
+  - Provides `getOrCreateAndUpdateUser(userId, username, avatarUrl)`.
+  - Creates new users when needed.
+  - Updates stored username/avatar URL when Discord profile data changes.
+- `GuildStatsService.java`
+  - Owns `GuildStatsRepository` access for guild-stat mutation/ranking helpers.
+  - Provides `addTimeToUser(userId, guildId, durationSeconds)`.
+  - Finds or creates the matching `guild_stats` row for (`user_id`, `guild_id`) and increments `total_time`.
+  - Provides `getTop10Ranking(guildId)` for ranking queries.
 - `ProfileService.java`
   - Builds `/perfil` responses from `guild_stats.total_time` for the current guild.
   - Builds `/ranking` responses from the Top 10 `guild_stats` rows ordered by `total_time DESC` for the current guild.
@@ -126,16 +141,19 @@ The project uses a guild-scoped data model: Discord user identity is stored glob
 - Maven project configured with JDA, Spring Data JPA, Flyway, PostgreSQL driver, and Lombok.
 - Database migrations `V001__create_tables.sql` and `V002__refactor_guild_stats.sql` exist.
 - Entities and repositories are implemented for `User`, `GuildStats`, and `VoiceSession`.
+- `UserService` encapsulates user creation/profile refresh logic and owns direct `UserRepository` usage.
+- `GuildStatsService` encapsulates guild-scoped time accumulation logic and owns direct `GuildStatsRepository` mutation helpers.
 - JDA startup/configuration is implemented in `JDAConfig`.
 - Slash command registration is implemented in `ReadyEventListener`.
-- Voice join/leave tracking is implemented through `VoiceEventListener` and `VoiceSessionService`.
+- Voice join/leave tracking is implemented through `VoiceEventListener` and `VoiceSessionService`, with user/stat responsibilities delegated to `UserService` and `GuildStatsService`.
 - Guild-scoped accumulated time is persisted in `guild_stats`.
 - Slash commands `/perfil` and `/ranking` are implemented through `CommandListener` and `ProfileService`.
 - Docker Compose and Dockerfile are present for local/container execution.
 
 ## 8. Known Limitations / Next Steps
 - ~~Recover active sessions after bot restart instead of relying only on the in-memory `activeSessionsCache`.~~
-- Update stored usernames/avatar URLs for existing users when Discord profile data changes.
+- ~~Update stored usernames/avatar URLs for existing users when Discord profile data changes.~~
+- Consider routing `ProfileService` ranking reads through `GuildStatsService` as well, so `GuildStatsRepository` access is fully centralized.
 - Add tests for `VoiceSessionService`, `ProfileService`, and command handling.
 - Consider handling voice channel moves explicitly if channel-level session history becomes important.
 - Review slash command behavior for direct-message usage; `CommandListener` replies with an error when `event.getGuild()` is null, but should return immediately afterward.
