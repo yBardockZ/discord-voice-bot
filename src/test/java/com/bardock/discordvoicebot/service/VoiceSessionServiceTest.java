@@ -2,6 +2,7 @@ package com.bardock.discordvoicebot.service;
 
 import com.bardock.discordvoicebot.entity.User;
 import com.bardock.discordvoicebot.entity.VoiceSession;
+import com.bardock.discordvoicebot.factory.UserTestData;
 import com.bardock.discordvoicebot.repository.VoiceSessionRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.mockito.Mockito.*;
 
@@ -32,24 +34,21 @@ public class VoiceSessionServiceTest {
     @Test
     @DisplayName("Must register new database session when user enters call")
     void handleJoin_sucess() {
-        Long userId = 123L;
-        Long guildId = 456L;
-        String username = "Bardock";
-        String avatarUrl = "url-da-foto";
 
-        User mockUser = new User();
-        mockUser.setId(userId);
-        mockUser.setUsername(username);
+        Long guildId = 456L;
+        User mockUser = UserTestData.createValidUser();
 
         // Quando o UserService for chamado, devolva o mockUser
-        when(userService.getOrCreateAndUpdateUser(userId, username, avatarUrl)).thenReturn(mockUser);
+        when(userService.getOrCreateAndUpdateUser(UserTestData.DEFAULT_ID, UserTestData.DEFAULT_USERNAME,
+                UserTestData.DEFAULT_AVATAR)).thenReturn(mockUser);
 
         // Quando procurar por uma sessão órfã, finja que o banco não achou nada (Optional.empty)
-        when(voiceSessionRepository.findFirstByUserIdAndGuildIdAndEndedAtIsNull(userId, guildId))
+        when(voiceSessionRepository.findFirstByUserIdAndGuildIdAndEndedAtIsNull(UserTestData.DEFAULT_ID, guildId))
                 .thenReturn(Optional.empty());
 
         // Ação
-        voiceSessionService.handleJoin(userId, guildId, username, avatarUrl);
+        voiceSessionService.handleJoin(UserTestData.DEFAULT_ID, guildId, UserTestData.DEFAULT_USERNAME,
+                UserTestData.DEFAULT_AVATAR);
 
         // --- ASSERT (Verificação) ---
         // Verificamos se o repositório foi chamado pra salvar a nova sessão EXATAMENTE 1 vez
@@ -57,6 +56,41 @@ public class VoiceSessionServiceTest {
 
         // Verificamos se, como não havia sessão órfã, o delete NUNCA foi chamado
         verify(voiceSessionRepository, never()).delete(any(VoiceSession.class));
+
+    }
+
+    @Test
+    @DisplayName("Must delete orphaned session before create a new one when entering call")
+    void handleJoin_WithOrphanSession() {
+        // -- ARRANGE --
+        Long guildId = 456L;
+
+        User mockUser = UserTestData.createValidUser();
+
+        // Criamos uma sessão "falsa" representando a órfã presa no banco
+        VoiceSession orphanSession = new VoiceSession();
+        orphanSession.setId(UUID.randomUUID());
+        orphanSession.setUser(mockUser);
+        orphanSession.setGuildId(guildId);
+
+        // "Quando pedir o usuário, devolva o mockUser"
+        when(userService.getOrCreateAndUpdateUser(123L, UserTestData.DEFAULT_USERNAME,
+                UserTestData.DEFAULT_AVATAR)).thenReturn(mockUser);
+
+        // "Quando procurar por sessão órfã, finja que o banco achou essa sessão antiga"
+        when(voiceSessionRepository.findFirstByUserIdAndGuildIdAndEndedAtIsNull(UserTestData.DEFAULT_ID, guildId))
+                .thenReturn(Optional.of(orphanSession));
+
+        // -- ACTION --
+        voiceSessionService.handleJoin(UserTestData.DEFAULT_ID, guildId, UserTestData.DEFAULT_USERNAME,
+                UserTestData.DEFAULT_AVATAR);
+
+        // -- ASSERT --
+        // 1. Verificamos se o serviço deletou a sessão órfã que estava presa
+        verify(voiceSessionRepository, times(1)).delete(orphanSession);
+
+        // 2. Verificamos se o serviço salvou a nova sessão da chamada atual
+        verify(voiceSessionRepository, times(1)).save(any(VoiceSession.class));
 
     }
 
