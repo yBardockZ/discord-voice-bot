@@ -134,6 +134,25 @@ public class VoiceSessionServiceTest {
         assert fakeCache.isEmpty();
     }
 
+    @Test
+    @DisplayName("It shouldn`t do anything if user call leaves but isn`t in the cache")
+    void handleLeave_WhenUserNotInCache_ShouldDoNothing() {
+        // --- ARRANGE ---
+        Long guildId = 456L;
+        Long userId = UserTestData.DEFAULT_ID;
+
+        // Garantimos que o cache do serviço está vazio
+        ReflectionTestUtils.setField(voiceSessionService, "activeSessionsCache", new ConcurrentHashMap<>());
+
+        // --- ACTION ---
+        voiceSessionService.handleLeave(userId, guildId);
+
+        // --- ASSERT ---
+        verify(guildStatsService, never()).addTimeToUser(any(), any(), any());
+        verify(voiceSessionRepository, never()).findFirstByUserIdAndGuildIdAndEndedAtIsNull(any(), any());
+        verify(voiceSessionRepository, never()).save(any());
+    }
+
 
 
 }
