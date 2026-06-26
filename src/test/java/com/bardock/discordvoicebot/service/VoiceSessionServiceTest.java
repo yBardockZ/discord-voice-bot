@@ -10,9 +10,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.mockito.Mockito.*;
 
@@ -46,7 +50,7 @@ public class VoiceSessionServiceTest {
         when(voiceSessionRepository.findFirstByUserIdAndGuildIdAndEndedAtIsNull(UserTestData.DEFAULT_ID, guildId))
                 .thenReturn(Optional.empty());
 
-        // Ação
+        // ACTION
         voiceSessionService.handleJoin(UserTestData.DEFAULT_ID, guildId, UserTestData.DEFAULT_USERNAME,
                 UserTestData.DEFAULT_AVATAR);
 
@@ -93,5 +97,43 @@ public class VoiceSessionServiceTest {
         verify(voiceSessionRepository, times(1)).save(any(VoiceSession.class));
 
     }
+
+    @Test
+    @DisplayName("Most calculate duration, delegate to GuildStats and finish session")
+    void handleLeave_Sucess() {
+        // --- ARRANGE ---
+        Long guildId = 456L;
+        Long userId = UserTestData.DEFAULT_ID;
+
+        Instant tenMinutesAgo = Instant.now().minusSeconds(600);
+
+        Map<Long, Instant> fakeCache = new ConcurrentHashMap<>();
+        fakeCache.put(userId, tenMinutesAgo);
+        ReflectionTestUtils.setField(voiceSessionService, "activeSessionsCache", fakeCache);
+
+        VoiceSession openSession = new VoiceSession();
+        openSession.setId(UUID.randomUUID());
+        openSession.setEndedAt(null);
+
+        when(voiceSessionRepository.findFirstByUserIdAndGuildIdAndEndedAtIsNull(userId, guildId))
+                .thenReturn(Optional.of(openSession));
+
+        // --- ACTION ---
+        voiceSessionService.handleLeave(userId, guildId);
+
+        // --- ASSERT ---
+        verify(guildStatsService, times(1)).addTimeToUser(
+                eq(userId),
+                eq(guildId),
+                longThat(duration -> duration >= 600L && duration <= 605L) // evitar falsos negativos caso o processador atrase 1ms a mais
+        );
+
+        verify(voiceSessionRepository, times(1)).save(openSession);
+
+        // garante que o usuário foi removido do cache falso
+        assert fakeCache.isEmpty();
+    }
+
+
 
 }
