@@ -39,11 +39,31 @@ public class UserServiceTest {
         // --- ACT ---
         User result = userService.getOrCreateAndUpdateUser(existingUser.getId(), newDiscordName, existingUser.getUserPicture());
 
+        // --- ASSERT ---
         verify(userRepository, times(1)).save(userCaptor.capture());
 
         User savedUser = userCaptor.getValue();
         assertThat(savedUser.getUsername()).isEqualTo(newDiscordName);
         assertThat(result.getUsername()).isEqualTo(newDiscordName);
+    }
+
+    @Test
+    @DisplayName("Must create and save a new user if one does not exist in the database")
+    void getOrCreateAndUpdateUser_NewUser() {
+        // --- ARRANGE ---
+        when(userRepository.findById(UserTestData.DEFAULT_ID)).thenReturn(Optional.empty());
+        when(userRepository.save(any(User.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // --- ACT ---
+        User result = userService.getOrCreateAndUpdateUser(UserTestData.DEFAULT_ID, UserTestData.DEFAULT_USERNAME,
+                UserTestData.DEFAULT_AVATAR);
+
+        // --- ASSERT ---
+        verify(userRepository, times(1)).save(userCaptor.capture());
+        assertThat(result.getId()).isEqualTo(UserTestData.DEFAULT_ID);
+        assertThat(userCaptor.getValue().getUsername()).isEqualTo(UserTestData.DEFAULT_USERNAME);
+
     }
 
 }
