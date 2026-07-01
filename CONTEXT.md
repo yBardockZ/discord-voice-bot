@@ -12,6 +12,7 @@ A Discord bot built in Java/Spring Boot to track and persist the total time each
 - **Migrations:** Flyway
 - **Infrastructure:** Docker & Docker Compose (multi-stage build)
 - **Utilities:** Lombok
+- **Testing:** JUnit 5, Mockito, AssertJ, Spring Boot Test
 
 ## 3. Architecture & Data Model
 The project uses a guild-scoped data model: Discord user identity is stored globally in `users`, while accumulated voice time is stored per guild in `guild_stats`.
@@ -148,15 +149,32 @@ The project uses a guild-scoped data model: Discord user identity is stored glob
 - Voice join/leave tracking is implemented through `VoiceEventListener` and `VoiceSessionService`, with user/stat responsibilities delegated to `UserService` and `GuildStatsService`.
 - Guild-scoped accumulated time is persisted in `guild_stats`.
 - Slash commands `/perfil` and `/ranking` are implemented through `CommandListener` and `ProfileService`.
+- Unit tests are implemented for `UserService`, `GuildStatsService`, and `VoiceSessionService`.
+- A shared test-data factory exists in `UserTestData` for common `User` fixtures.
+- A Spring Boot context smoke test exists in `DiscordVoiceBotApplicationTests`.
 - Docker Compose and Dockerfile are present for local/container execution.
 
-## 8. Known Limitations / Next Steps
-- ~~Recover active sessions after bot restart instead of relying only on the in-memory `activeSessionsCache`.~~
-- ~~Update stored usernames/avatar URLs for existing users when Discord profile data changes.~~
+## 8. Test Coverage
+- `UserServiceTest`
+  - Verifies new user creation when the Discord user is not persisted yet.
+  - Verifies existing users are returned without saving when username/avatar data is unchanged.
+  - Verifies username/avatar changes are persisted when Discord profile data changes.
+- `GuildStatsServiceTest`
+  - Verifies creation of a new `guild_stats` record with initial duration when no guild history exists.
+  - Verifies new voice duration is added to an existing guild-scoped total.
+- `VoiceSessionServiceTest`
+  - Verifies `handleJoin` creates a new open `voice_sessions` row.
+  - Verifies `handleJoin` deletes a stale/orphan open session before creating a new one.
+  - Verifies `handleLeave` calculates session duration, delegates accumulation to `GuildStatsService`, closes the open session, and clears the in-memory cache.
+  - Verifies `handleLeave` exits without repository/stat updates when the user is not present in the in-memory cache.
+- `DiscordVoiceBotApplicationTests`
+  - Verifies the Spring application context loads.
+
+## 9. Known Limitations / Next Steps
 - Consider routing `ProfileService` ranking reads through `GuildStatsService` as well, so `GuildStatsRepository` access is fully centralized.
-- Add tests for `VoiceSessionService`, `ProfileService`, and command handling.
-- Consider handling voice channel moves explicitly if channel-level session history becomes important.
-- Review slash command behavior for direct-message usage; `CommandListener` replies with an error when `event.getGuild()` is null, but should return immediately afterward.
+- Add or restore tests for `ProfileService` embed generation.
+- Add tests for command handling in `CommandListener`.
+- Add tests for `VoiceSessionService.syncSessionsWithDiscord(JDA)`.
 
 ## Invite URL
 https://discord.com/oauth2/authorize?client_id=1495474048224723234&permissions=2148535296&integration_type=0&scope=bot+applications.commands

@@ -38,27 +38,22 @@ public class VoiceSessionServiceTest {
     @Test
     @DisplayName("Must register new database session when user enters call")
     void handleJoin_sucess() {
-
+        // --- ARRANGE ---
         Long guildId = 456L;
         User mockUser = UserTestData.createValidUser();
 
-        // Quando o UserService for chamado, devolva o mockUser
         when(userService.getOrCreateAndUpdateUser(UserTestData.DEFAULT_ID, UserTestData.DEFAULT_USERNAME,
                 UserTestData.DEFAULT_AVATAR)).thenReturn(mockUser);
 
-        // Quando procurar por uma sessão órfã, finja que o banco não achou nada (Optional.empty)
         when(voiceSessionRepository.findFirstByUserIdAndGuildIdAndEndedAtIsNull(UserTestData.DEFAULT_ID, guildId))
                 .thenReturn(Optional.empty());
 
-        // ACTION
+        // --- ACTION ---
         voiceSessionService.handleJoin(UserTestData.DEFAULT_ID, guildId, UserTestData.DEFAULT_USERNAME,
                 UserTestData.DEFAULT_AVATAR);
 
-        // --- ASSERT (Verificação) ---
-        // Verificamos se o repositório foi chamado pra salvar a nova sessão EXATAMENTE 1 vez
+        // --- ASSERT ---
         verify(voiceSessionRepository, times(1)).save(any(VoiceSession.class));
-
-        // Verificamos se, como não havia sessão órfã, o delete NUNCA foi chamado
         verify(voiceSessionRepository, never()).delete(any(VoiceSession.class));
 
     }
