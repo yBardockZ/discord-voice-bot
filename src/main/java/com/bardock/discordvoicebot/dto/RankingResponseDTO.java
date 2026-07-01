@@ -9,12 +9,12 @@ public record RankingResponseDTO(
         Long totalSeconds,
         String formattedTime
 ) {
-    public static RankingResponseDTO fromEntity(GuildStats stats, String formattedTime) {
+    public static RankingResponseDTO fromEntity(GuildStats guildStats, String formattedTime) {
         return new RankingResponseDTO(
-                stats.getUser().getId(),
-                stats.getUser().getUsername(),
-                stats.getUser().getUserPicture(),
-                stats.getTotalTime(),
+                guildStats.getUser().getId(),
+                guildStats.getUser().getUsername(),
+                guildStats.getUser().getUserPicture(),
+                guildStats.getTotalTime(),
                 formattedTime
         );
     }

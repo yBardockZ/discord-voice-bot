@@ -175,6 +175,8 @@ The project uses a guild-scoped data model: Discord user identity is stored glob
 - Add or restore tests for `ProfileService` embed generation.
 - Add tests for command handling in `CommandListener`.
 - Add tests for `VoiceSessionService.syncSessionsWithDiscord(JDA)`.
+- Consider refactor 'formatTime' from `ProfileService` to a new class `TimeUtils`
+- Consider implementing a new feature in the `syncSessionsWithDiscord` that calls `handleJoin` method for each user who is connected to the calls at the moment the bot starts
 
 ## Invite URL
 https://discord.com/oauth2/authorize?client_id=1495474048224723234&permissions=2148535296&integration_type=0&scope=bot+applications.commands
