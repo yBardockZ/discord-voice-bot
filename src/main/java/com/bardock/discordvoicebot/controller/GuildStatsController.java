@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+import static com.bardock.discordvoicebot.util.TimeFormatterUtil.formatTime;
+
 @RestController
 @RequestMapping("/api/v1/guilds")
 @RequiredArgsConstructor
@@ -35,9 +37,4 @@ public class GuildStatsController {
 
     }
 
-    private String formatTime(Long totalSeconds) {
-        long hours = totalSeconds / 3600;
-        long minutes = (totalSeconds % 3600) / 60;
-        return hours + "h " + minutes + "m";
-    }
 }

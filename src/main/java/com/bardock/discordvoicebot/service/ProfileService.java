@@ -14,6 +14,8 @@ import java.util.List;
 
 import java.awt.*;
 
+import static com.bardock.discordvoicebot.util.TimeFormatterUtil.formatTime;
+
 @Service
 @RequiredArgsConstructor
 public class ProfileService {
@@ -53,7 +55,7 @@ public class ProfileService {
                 default -> "🔹 " + position + "º";
             };
 
-            String formattedTime = getFormattedTime(stats.getTotalTime());
+            String formattedTime = formatTime(stats.getTotalTime());
 
             rankingBuilder.append(positionMarker)
                     .append(" **")
@@ -80,7 +82,7 @@ public class ProfileService {
         User user = guildStats.getUser();
 
         long totalSeconds = guildStats.getTotalTime();
-        String formattedTime = getFormattedTime(totalSeconds);
+        String formattedTime = formatTime(totalSeconds);
 
         EmbedBuilder embed = new EmbedBuilder();
 
@@ -112,9 +114,4 @@ public class ProfileService {
         return embed.build();
     }
 
-    private String getFormattedTime(Long totalSeconds) {
-        long hours = totalSeconds / 3600;
-        long minutes = (totalSeconds % 3600) / 60;
-        return hours + "h " + minutes + "m";
-    }
 }

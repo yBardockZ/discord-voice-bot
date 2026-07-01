@@ -9,6 +9,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import static com.bardock.discordvoicebot.util.TimeFormatterUtil.formatTime;
+
 @RestController
 @RequestMapping("api/v1/users")
 @RequiredArgsConstructor
@@ -28,12 +30,6 @@ public class UserProfileController {
                 })
                 .orElseGet(() -> ResponseEntity.notFound().build());
 
-    }
-
-    private String formatTime(Long totalSeconds) {
-        long hours = totalSeconds / 3600;
-        long minutes = (totalSeconds % 3600) / 60;
-        return hours + "h " + minutes + "m";
     }
 
 
