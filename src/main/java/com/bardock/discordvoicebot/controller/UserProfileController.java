@@ -1,7 +1,10 @@
 package com.bardock.discordvoicebot.controller;
 
 import com.bardock.discordvoicebot.dto.UserProfileResponseDTO;
+import com.bardock.discordvoicebot.entity.GuildStats;
+import com.bardock.discordvoicebot.exception.ResourceNotFoundException;
 import com.bardock.discordvoicebot.repository.GuildStatsRepository;
+import com.bardock.discordvoicebot.util.TimeFormatterUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,13 +26,14 @@ public class UserProfileController {
             @PathVariable Long userId,
             @PathVariable Long guildId) {
 
-        return guildStatsRepository.findByUserIdAndGuildId(userId, guildId)
-                .map(guildStats -> {
-                    String formattedTime = formatTime(guildStats.getTotalTime());
-                    return ResponseEntity.ok(UserProfileResponseDTO.fromEntity(guildStats, formattedTime));
-                })
-                .orElseGet(() -> ResponseEntity.notFound().build());
+        GuildStats guildStats = guildStatsRepository.findByUserIdAndGuildId(userId, guildId)
+                .orElseThrow(() -> new ResourceNotFoundException("User ID: " + userId + " have no hours logged on the server: " +
+                        guildId + "."));
 
+        String formattedTime = TimeFormatterUtil.formatTime(guildStats.getTotalTime());
+        UserProfileResponseDTO responseDTO = UserProfileResponseDTO.fromEntity(guildStats, formattedTime);
+
+        return ResponseEntity.ok(responseDTO);
     }
 
 
