@@ -175,8 +175,8 @@ The project uses a guild-scoped data model: Discord user identity is stored glob
 - Add or restore tests for `ProfileService` embed generation.
 - Add tests for command handling in `CommandListener`.
 - Add tests for `VoiceSessionService.syncSessionsWithDiscord(JDA)`.
-- Consider refactor 'formatTime' from `ProfileService` to a new class `TimeUtils`
-- Consider implementing a new feature in the `syncSessionsWithDiscord` that calls `handleJoin` method for each user who is connected to the calls at the moment the bot starts
+- ~~Consider refactor 'formatTime' from `ProfileService` to a new class `TimeUtils`~~
+- ~~Consider implementing a new feature in the `syncSessionsWithDiscord` that calls `handleJoin` method for each user who is connected to the calls at the moment the bot starts~~
 - Implement exception handling
 - Implement pagination
 

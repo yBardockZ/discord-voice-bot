@@ -80,6 +80,12 @@ public class VoiceSessionService {
     }
 
     public void syncSessionsWithDiscord(JDA jda) {
+        restoreExistingSessions(jda);
+        discoverNewSessions(jda);
+
+    }
+
+    private void restoreExistingSessions(JDA jda) {
         List<VoiceSession> openSessions = voiceSessionRepository.findByEndedAtIsNull();
 
         for (VoiceSession session : openSessions) {
@@ -103,6 +109,18 @@ public class VoiceSessionService {
                 voiceSessionRepository.delete(session);
             }
         }
+    }
+
+    private void discoverNewSessions(JDA jda) {
+        jda.getGuilds().stream()
+                .flatMap(guild -> guild.getVoiceChannels().stream())
+                .flatMap(channel -> channel.getMembers().stream())
+                .filter(member -> !member.getUser().isBot())
+                .filter(member -> !activeSessionsCache.containsKey(member.getIdLong()))
+                .forEach(member -> {
+                    handleJoin(member.getIdLong(), member.getGuild().getIdLong(), member.getUser().getName(),
+                            member.getUser().getEffectiveAvatarUrl());
+                });
     }
 
 }
