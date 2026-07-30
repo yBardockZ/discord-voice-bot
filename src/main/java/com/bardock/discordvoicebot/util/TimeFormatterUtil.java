@@ -3,7 +3,7 @@ package com.bardock.discordvoicebot.util;
 public final class TimeFormatterUtil {
 
     private TimeFormatterUtil() {
-        throw new UnsupportedOperationException("This is a utility class and can`t be instanciated.");
+        throw new UnsupportedOperationException("This is a utility class and can`t be instantiated.");
     }
 
     public static String formatTime(Long totalSeconds) {
